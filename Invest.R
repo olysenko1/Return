@@ -22,43 +22,64 @@ df <-na.omit(df)
 library(dplyr)
 library(shiny)
 library(shinyWidgets)
+library(ggplot2)
 ui <- fluidPage(
-  titlePanel("Stock return"),
-  sidebarPanel(
-    pickerInput("company", "Live search", 
-                choices = unique(df$Company),
-                options = list(
-                  `live-search` = TRUE),
-                multiple = TRUE
+    theme = shinythemes::shinytheme('simplex'),
+    titlePanel("Stock return"),
+    sidebarPanel(
+        pickerInput("company", "Live search", 
+                    choices = unique(df$Company),
+                    options = list(
+                        `live-search` = TRUE),
+                    #multiple = TRUE
+        ),
+        dateRangeInput("dates", "Choose a date range:",
+                       start = "2019-04-15",
+                       end = "2020-04-10"
+        )
     ),
-    dateRangeInput("dates", "Choose a date range:",
-                   start = "2019-04-15",
-                   end = "2020-04-10"
+    # MODIFY CODE BELOW: Create a tab layout for the dashboard
+    tabsetPanel(
+        tabPanel('Plot', plotly::plotlyOutput('shapes')),
+        tabPanel("Risk measures", textOutput("var"))
     )
-  ),
-  # MODIFY CODE BELOW: Create a tab layout for the dashboard
-  mainPanel(
-    plotly::plotlyOutput('shapes')
-  )
 )
 
 server <- function(input, output) {
-  return_display <- reactive({
-    df %>%
-      filter(Company==input$company,
-             ref.date >= input$dates[1],
-             ref.date <= input$dates[2]
-      )%>%
-      group_by(Company) %>% 
-      mutate(cs = cumsum(ret.closing.prices))
-  })
-  
-  output$shapes <- plotly::renderPlotly({
-    return_display() %>%
-      ggplot(aes(cs,ref.date))+
-               geom_col() +
-               coord_flip()
-  })
+    return_display <- reactive({ 
+        df %>%
+            filter(Company==input$company,
+                   ref.date >= input$dates[1],
+                   ref.date <= input$dates[2]
+            )%>%
+            group_by(Company) %>% 
+            mutate(cs = cumsum(ret.closing.prices))
+    })
+    
+    VAR <- reactive({ 
+        df %>%
+            filter(Company==input$company,
+                   ref.date >= input$dates[1],
+                   ref.date <= input$dates[2]
+            )
+        X <- sort(df$ret.closing.prices, decreasing = TRUE)
+        Quan <- quantile(X,0.01)
+    })
+    
+    output$shapes <- plotly::renderPlotly({
+        return_display() %>% 
+            mutate(Color = ifelse(cs > 0, 'Positive', 'Negative')) %>%
+            ggplot(aes(cs, ref.date, color = Color))+
+            labs(title =" Cumulative return of the selected stock", x = "value", y = "date") +
+            geom_col() +
+            coord_flip() 
+        
+    })
+    
+    output$var <- renderText({ 
+        VAR() %>%
+            paste("estimated Value at Risk of the selected Stock for the period")
+    })
 }
 
 shinyApp(ui=ui, server=server)
