@@ -55,7 +55,7 @@ server <- function(input, output) {
             group_by(Company) %>% 
             mutate(cs = cumsum(ret.closing.prices))
     })
-    
+     
     
     output$shapes <- plotly::renderPlotly({
         return_display() %>% 
@@ -67,6 +67,11 @@ server <- function(input, output) {
         
     })
     
+    observeEvent("", {
+        showModal(modalDialog(
+            includeHTML("text.html"),
+            easyClose = TRUE))})
+            
     output$risk <- renderTable({
         df %>%
             filter(Company==input$company,
