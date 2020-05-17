@@ -41,7 +41,7 @@ ui <- fluidPage(
     # MODIFY CODE BELOW: Create a tab layout for the dashboard
     tabsetPanel(
         tabPanel('Plot', plotly::plotlyOutput('shapes')),
-        tabPanel("Risk measures", textOutput("var"))
+        tabPanel("Risk measures", tableOutput("risk"))
     )
 )
 
@@ -56,15 +56,6 @@ server <- function(input, output) {
             mutate(cs = cumsum(ret.closing.prices))
     })
     
-    VAR <- reactive({ 
-        df %>%
-            filter(Company==input$company,
-                   ref.date >= input$dates[1],
-                   ref.date <= input$dates[2]
-            )
-        X <- sort(df$ret.closing.prices, decreasing = TRUE)
-        Quan <- quantile(X,0.01)
-    })
     
     output$shapes <- plotly::renderPlotly({
         return_display() %>% 
@@ -76,9 +67,18 @@ server <- function(input, output) {
         
     })
     
-    output$var <- renderText({ 
-        VAR() %>%
-            paste("estimated Value at Risk of the selected Stock for the period")
+    output$risk <- renderTable({
+        df %>%
+            filter(Company==input$company,
+                   ref.date >= input$dates[1],
+                   ref.date <= input$dates[2],
+            ) %>%
+    
+           summarise(
+               `Empirical quantile VaR` = sprintf("%0.5f", quantile(ret.closing.prices, 0.01)),
+               `Empirical quantile ES` = sprintf("%0.5f", mean(ret.closing.prices[ret.closing.prices<quantile(ret.closing.prices, 0.01)])
+)
+           )
     })
 }
 
